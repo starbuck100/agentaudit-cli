@@ -1,6 +1,6 @@
 {
   "name": "agentaudit",
-  "version": "2.0.0",
+  "version": "1.0.1",
   "description": "Zero-install MCP security scanner \u2014 checks your local MCP config packages against the AgentAudit registry",
   "bin": {
     "agentaudit": "./dist/index.js"
@@ -16,7 +16,7 @@
     "agent",
     "scanner"
   ],
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "dependencies": {
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
