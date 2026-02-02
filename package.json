@@ -1,0 +1,27 @@
+{
+  "name": "agentaudit",
+  "version": "1.0.0",
+  "description": "Zero-install MCP security scanner — checks your local MCP config packages against the AgentAudit registry",
+  "bin": {
+    "agentaudit": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": ["mcp", "security", "audit", "agent", "scanner"],
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "ora": "^8.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "type": "module"
+}
