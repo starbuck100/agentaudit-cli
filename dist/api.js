@@ -38,36 +38,6 @@ export async function searchPackages(query, limit = 20) {
         return [];
     }
 }
-export async function registerAgent(agentName) {
-    try {
-        const data = await apiFetch(`${BASE}/register`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ agent_name: agentName }),
-        });
-        if (data._error)
-            return { ok: false, error: data._body?.error || `HTTP ${data._error}` };
-        return { ok: true, api_key: data.api_key, existing: data.existing };
-    }
-    catch (e) {
-        return { ok: false, error: e.message };
-    }
-}
-export async function submitReport(apiKey, report) {
-    try {
-        const data = await apiFetch(`${BASE}/reports`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-            body: JSON.stringify(report),
-        });
-        if (data._error)
-            return { ok: false, error: data._body?.error || `HTTP ${data._error}` };
-        return { ok: true, report_id: data.report_id, findings_created: data.findings_created };
-    }
-    catch (e) {
-        return { ok: false, error: e.message };
-    }
-}
 export async function getStats() {
     try {
         const data = await apiFetch(`${BASE}/health`);

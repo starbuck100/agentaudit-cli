@@ -53,44 +53,6 @@ export async function searchPackages(query: string, limit = 20): Promise<Package
   } catch { return []; }
 }
 
-export async function registerAgent(agentName: string): Promise<{ ok: boolean; api_key?: string; error?: string; existing?: boolean }> {
-  try {
-    const data = await apiFetch(`${BASE}/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent_name: agentName }),
-    });
-    if (data._error) return { ok: false, error: data._body?.error || `HTTP ${data._error}` };
-    return { ok: true, api_key: data.api_key, existing: data.existing };
-  } catch (e: any) {
-    return { ok: false, error: e.message };
-  }
-}
-
-export async function submitReport(apiKey: string, report: {
-  package_name: string;
-  risk_score: number;
-  result: string;
-  max_severity?: string;
-  findings_count: number;
-  findings?: any[];
-  package_type?: string;
-  source_url?: string;
-  package_version?: string;
-}): Promise<{ ok: boolean; report_id?: number; findings_created?: string[]; error?: string }> {
-  try {
-    const data = await apiFetch(`${BASE}/reports`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify(report),
-    });
-    if (data._error) return { ok: false, error: data._body?.error || `HTTP ${data._error}` };
-    return { ok: true, report_id: data.report_id, findings_created: data.findings_created };
-  } catch (e: any) {
-    return { ok: false, error: e.message };
-  }
-}
-
 export async function getStats(): Promise<any> {
   try {
     const data = await apiFetch(`${BASE}/health`);

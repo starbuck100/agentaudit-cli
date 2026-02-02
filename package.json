@@ -1,7 +1,7 @@
 {
   "name": "agentaudit",
-  "version": "1.0.1",
-  "description": "Zero-install MCP security scanner \u2014 checks your local MCP config packages against the AgentAudit registry",
+  "version": "2.0.0",
+  "description": "Security scanner for AI agent packages — check trust scores, find vulnerabilities, protect your setup",
   "bin": {
     "agentaudit": "./dist/index.js"
   },
