@@ -1,33 +1,81 @@
-const BASE_URL = "https://www.agentaudit.dev/api";
-export async function fetchFindings(packageName) {
-    const url = `${BASE_URL}/findings?package=${encodeURIComponent(packageName)}`;
+const BASE = "https://www.agentaudit.dev/api";
+async function apiFetch(url, opts) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-        const res = await fetch(url, { signal: controller.signal });
+        const res = await fetch(url, { ...opts, signal: controller.signal });
         clearTimeout(timeout);
-        if (!res.ok) {
-            return { name: packageName, findings: [], total: 0, trustScore: 0, error: `HTTP ${res.status}` };
-        }
-        const data = await res.json();
-        const trustScore = calculateTrustScore(data.findings);
-        return { name: packageName, findings: data.findings, total: data.total, trustScore };
+        if (!res.ok)
+            return { _error: res.status, _body: await res.json().catch(() => ({})) };
+        return await res.json();
     }
     catch (e) {
-        const msg = e.name === "AbortError" ? "Timeout" : e.message || "Unknown error";
-        return { name: packageName, findings: [], total: 0, trustScore: -1, error: msg };
+        clearTimeout(timeout);
+        throw new Error(e.name === "AbortError" ? "Request timed out" : e.message);
     }
 }
-function calculateTrustScore(findings) {
-    const penalties = { critical: 25, high: 15, medium: 8, low: 3 };
-    const highRiskComponents = new Set(["hook", "mcp", "settings", "plugin"]);
-    let total = 0;
-    for (const f of findings) {
-        if (f.by_design)
-            continue;
-        const base = penalties[f.severity] || 0;
-        const multiplier = f.component_type && highRiskComponents.has(f.component_type) ? 1.2 : 1;
-        total += base * multiplier;
+export async function checkPackage(name) {
+    try {
+        const data = await apiFetch(`${BASE}/skills/${encodeURIComponent(name)}`);
+        if (data._error === 404)
+            return { found: false };
+        if (data._error)
+            return { found: false, error: `HTTP ${data._error}` };
+        return { found: true, pkg: data };
     }
-    return Math.max(0, Math.round(100 - total));
+    catch (e) {
+        return { found: false, error: e.message };
+    }
+}
+export async function searchPackages(query, limit = 20) {
+    try {
+        const data = await apiFetch(`${BASE}/skills?q=${encodeURIComponent(query)}&limit=${limit}`);
+        if (data._error)
+            return [];
+        return Array.isArray(data) ? data : [];
+    }
+    catch {
+        return [];
+    }
+}
+export async function registerAgent(agentName) {
+    try {
+        const data = await apiFetch(`${BASE}/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ agent_name: agentName }),
+        });
+        if (data._error)
+            return { ok: false, error: data._body?.error || `HTTP ${data._error}` };
+        return { ok: true, api_key: data.api_key, existing: data.existing };
+    }
+    catch (e) {
+        return { ok: false, error: e.message };
+    }
+}
+export async function submitReport(apiKey, report) {
+    try {
+        const data = await apiFetch(`${BASE}/reports`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+            body: JSON.stringify(report),
+        });
+        if (data._error)
+            return { ok: false, error: data._body?.error || `HTTP ${data._error}` };
+        return { ok: true, report_id: data.report_id, findings_created: data.findings_created };
+    }
+    catch (e) {
+        return { ok: false, error: e.message };
+    }
+}
+export async function getStats() {
+    try {
+        const data = await apiFetch(`${BASE}/health`);
+        if (data._error)
+            return null;
+        return data;
+    }
+    catch {
+        return null;
+    }
 }

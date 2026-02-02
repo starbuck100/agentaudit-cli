@@ -1,6 +1,11 @@
-import { type PackageResult } from "./api.js";
-export interface ScanResult {
-    configsFound: string[];
-    packages: PackageResult[];
+export interface FoundPackage {
+    name: string;
+    source: string;
+    configFile: string;
 }
-export declare function scan(extraPaths?: string[]): Promise<ScanResult>;
+export interface ScanSources {
+    mcp: boolean;
+    npm: boolean;
+    pip: boolean;
+}
+export declare function findPackages(sources: ScanSources, extraPaths?: string[]): Promise<FoundPackage[]>;
