@@ -220,19 +220,41 @@ Examples:
 // ── submit ──
 program
   .command("submit")
-  .description("Submit a security report for a package")
+  .description("Submit a security report with detailed findings")
   .requiredOption("-p, --package <name>", "Package name")
   .requiredOption("-r, --result <result>", "Result: pass, warn, fail")
   .requiredOption("-s, --score <n>", "Risk score 0-100 (0=safe, 100=dangerous)")
   .option("--severity <sev>", "Max severity: critical, high, medium, low, info")
   .option("--type <type>", "Package type: pip, npm, mcp, skill")
   .option("--source <url>", "Source repository URL")
+  .option("--version <ver>", "Package version audited")
+  .option("-f, --findings <file>", "JSON file with findings array (see --help for format)")
+  .option("--finding <json...>", "Inline finding as JSON (repeatable)")
   .option("--api-key <key>", "API key (overrides saved credentials)")
   .addHelpText("after", `
 Examples:
+  # Simple report (no detailed findings)
   agentaudit submit -p phonemizer-fork -r pass -s 15
-  agentaudit submit -p evil-pkg -r fail -s 95 --severity critical
-  agentaudit submit -p my-mcp -r warn -s 45 --type mcp --source https://github.com/...`)
+
+  # Report with findings from JSON file
+  agentaudit submit -p evil-pkg -r fail -s 95 --severity critical -f findings.json
+
+  # Report with inline findings
+  agentaudit submit -p risky-mcp -r warn -s 65 --type mcp \\
+    --finding '{"title":"Arbitrary code exec","severity":"critical","file":"index.js","line":42,"content":"eval(userInput)","description":"User input passed directly to eval()"}' \\
+    --finding '{"title":"Data exfiltration","severity":"high","file":"helper.js","line":18,"content":"fetch(externalUrl, {body: env})","description":"Environment variables sent to external server"}'
+
+Findings JSON format (array of objects):
+  [
+    {
+      "title": "Finding title",           // required
+      "severity": "critical",             // critical|high|medium|low|info
+      "file": "src/index.js",            // affected file
+      "line": 42,                         // line number
+      "content": "eval(userInput)",       // the vulnerable code
+      "description": "Detailed explanation of the vulnerability and its impact"
+    }
+  ]`)
   .action(async (opts) => {
     const apiKey = opts.apiKey || (await loadCredentials())?.api_key;
     if (!apiKey) {
@@ -241,15 +263,73 @@ Examples:
       process.exit(2);
     }
 
-    const spinner = ora(`Submitting report for ${opts.package}...`).start();
+    // Parse findings
+    let findings: any[] = [];
+
+    if (opts.findings) {
+      try {
+        const { readFileSync } = await import("fs");
+        const raw = readFileSync(opts.findings, "utf-8");
+        findings = JSON.parse(raw);
+        if (!Array.isArray(findings)) {
+          console.log(chalk.red(`\n  ❌ Findings file must contain a JSON array\n`));
+          process.exit(2);
+        }
+      } catch (e: any) {
+        console.log(chalk.red(`\n  ❌ Could not read findings file: ${e.message}\n`));
+        process.exit(2);
+      }
+    }
+
+    if (opts.finding) {
+      for (const f of opts.finding) {
+        try {
+          findings.push(JSON.parse(f));
+        } catch {
+          console.log(chalk.red(`\n  ❌ Invalid JSON in --finding: ${f}\n`));
+          process.exit(2);
+        }
+      }
+    }
+
+    // Validate findings
+    for (const f of findings) {
+      if (!f.title && !f.name) {
+        console.log(chalk.red(`\n  ❌ Each finding needs at least a "title" field\n`));
+        process.exit(2);
+      }
+    }
+
+    // Auto-detect severity from findings if not set
+    const sevOrder = ["critical", "high", "medium", "low", "info"];
+    if (!opts.severity && findings.length > 0) {
+      let maxSev = "info";
+      for (const f of findings) {
+        const s = (f.severity || "info").toLowerCase();
+        if (sevOrder.indexOf(s) < sevOrder.indexOf(maxSev)) maxSev = s;
+      }
+      opts.severity = maxSev;
+    }
+
+    const spinner = ora(`Submitting report for ${opts.package} (${findings.length} findings)...`).start();
     const result = await submitReport(apiKey, {
       package_name: opts.package,
       risk_score: parseInt(opts.score),
       result: opts.result,
       max_severity: opts.severity,
-      findings_count: 0,
+      findings_count: findings.length,
+      findings: findings.map(f => ({
+        title: f.title || f.name,
+        severity: f.severity || "info",
+        file: f.file || f.file_path || undefined,
+        line_number: f.line || f.line_number || undefined,
+        line_content: f.content || f.line_content || undefined,
+        description: f.description || undefined,
+        pattern_id: f.pattern_id || undefined,
+      })),
       package_type: opts.type,
       source_url: opts.source,
+      package_version: opts.version,
     });
     spinner.stop();
 
@@ -260,6 +340,14 @@ Examples:
 
     console.log(chalk.green(`\n  ✅ Report submitted for ${chalk.bold(opts.package)}`));
     console.log(chalk.dim(`  Report ID: ${result.report_id}`));
+    if (findings.length > 0) {
+      console.log(chalk.dim(`  Findings:  ${findings.length}`));
+      for (const f of findings) {
+        const sev = (f.severity || "info").toLowerCase();
+        const sevColor = sev === "critical" ? chalk.red : sev === "high" ? chalk.yellow : chalk.dim;
+        console.log(`    ${sevColor(`[${sev.toUpperCase()}]`)} ${f.title || f.name}${f.file ? chalk.dim(` (${f.file}${f.line ? `:${f.line}` : ""})`) : ""}`);
+      }
+    }
     console.log(chalk.dim(`  View: https://agentaudit.dev/packages/${opts.package}\n`));
   });
 

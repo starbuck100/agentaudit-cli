@@ -76,6 +76,7 @@ export async function submitReport(apiKey: string, report: {
   findings?: any[];
   package_type?: string;
   source_url?: string;
+  package_version?: string;
 }): Promise<{ ok: boolean; report_id?: number; findings_created?: string[]; error?: string }> {
   try {
     const data = await apiFetch(`${BASE}/reports`, {
