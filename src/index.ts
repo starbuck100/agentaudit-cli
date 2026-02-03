@@ -66,7 +66,7 @@ program
   .option("-c, --config <paths...>", "Additional MCP config file paths")
   .option("--npm", "Also scan package.json")
   .option("--pip", "Also scan requirements.txt / pyproject.toml")
-  .option("--all", "Scan all detectable sources (MCP + npm + pip)")
+  .option("--all", "Scan all detectable sources (MCP + npm + pip + skills)")
   .option("-v, --verbose", "Show detailed results per package")
   .option("--json", "Output as JSON")
   .addHelpText("after", `
